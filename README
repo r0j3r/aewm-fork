@@ -1,0 +1,210 @@
+aewm - An Exiguous/Exegetic Window Manager
+------------------------------------------
+
+aewm is a minimal reparenting window manager for X11. It aims to
+provide a simple mouse-based interface, and a succinct, hackable
+implementation. It mostly follows the ICCCM and EWMH standards, and uses
+an overlapping, framed window paradigm. It provides as little decoration
+and UI as possible, relying on separate clients to provide additional
+functionality such as menus, keyboard bindings, session management, and
+listings of clients and desktops.
+
+All operations are performed by clicking on window frames or the root
+window, using a limited, non-configurable set of orthogonal commands
+that can be combined in useful ways. All 5 buttons of a modern ``wheel''
+mouse are utilized, although 3 are sufficient for basic usage. This
+design was motivated by a desire to keep the implementation simple --
+one button corresponds directly to one well-defined action in each
+context, and responding to root window clicks requires no additional
+event mechanism.
+
+In the author's opinion, this has the added benefit of conceptual
+integrity; if you tend to think about programs in terms of how they
+are implemented, aewm should feel natural. Without buttons or menus,
+much less time is wasted trying to precisely position the pointer. In
+particular, it is recommended that one leave all edges of the root
+window unobscured; thanks to Fitts' Law, this makes the available space
+for activating root window bindings essentially infinite. aewm includes
+settings to make this easier.
+
+aewm is probably *not* for you if you want sophisticated tiling, focus
+that does not follow the mouse, zero learning curve, pure keyboard
+operation, or compositing. It also isn't particularly pretty, but that
+does keep it from distracting.
+
+Installation
+------------
+
+Before compiling, enable any desired optional features in ``opts.mk''
+and set the appropriate paths for your site. To change the defaults for
+run-time options, edit ``opts.h'' (DEF_FONT, in particular, should be
+something that will always exist on your server). Then, run ``make; make
+install''.
+
+Usage
+-----
+
+aewm adds a small frame containing the window's name to the top of each
+window, with a box in the upper-right corner. Clicking on the main
+portion of the frame performs one command, and clicking in the box
+performs another. When moving, resizing, or interactively mapping a
+window (hereinafter collectively referred to as ``sweeping''), clicking
+a button ends the current command and performs a new one (``chaining'').
+The mapping of commands is as follows:
+
+   Frame     Box       Sweep
+=====================================================
+ 1 Raise     Iconify   Raise
+ 2 Move      Resize    Switch between Move and Resize
+ 3 Lower     Delete    Lower
+ 4 Shade     Expand    Expand
+ 5 Unshade   Shrink    Iconify
+
+Button 2 is the only button that begins a sweep operation. To chain
+multiple commands together, initiate the sweep by clicking once, then
+move the mouse to your desired location and click the button of the next
+command. To only perform one action, click and hold the button, drag,
+and release.
+
+Raise, Move, and Lower are the basic self-explanatory window operations.
+Shade ``rolls up'' the window and displays only the frame, and unshade
+rolls it back down.
+
+Iconify hides the window; to remember that this is the same button
+as raise, you may think of picking the window up off the desktop and
+putting it in the the icon manager. Delete asks the window to close
+itself, and if it does not respond, kills it; similarly, you may think
+of pushing the window away and out of the session entirely.
+
+Iconified windows are unmapped, and their management is left up to other
+clients.
+
+Expand increases the size of a window as much as possible without
+causing it to overlap any windows that it is not already overlapping. If
+its size cannot be increased without overlapping (or there are no other
+non-overlapping windows on its desktop), it is ``maximized'' to fill the
+entire screen. Shrink pops a size off of this stack.
+
+Clicking any button on the root window will launch another client. By
+default, these are:
+
+   Client
+==================
+ 1 aemenu --switch
+ 2 xterm
+ 3 aemenu --launch
+ 4 aedesk -1
+ 5 aedesk +1
+
+Newly mapped windows will be placed according to the following rules, in
+order of precedence:
+
+ 1. The window will be mapped under the pointer if and only if the
+    pointer is over the root.
+ 2. No portion of the window will be mapped outside the available
+    desktop.
+ 3. The window will overlap other windows as little as possible.
+ 4. The window will be mapped as close as possible to the pointer.
+
+If the the maptime (-mt) option is set to 0, windows will be placed
+immediately. Otherwise, a map request will begin a sweep operation,
+allowing you to place and/or manipulate the window before it is mapped.
+The sweep will automatically end after the number of seconds specified
+(a value of -1 means wait forever).
+
+Virtual Desktops
+----------------
+
+aewm supports virtual desktops, as defined by the EWMH specification.
+Switching from one desktop to another, or setting the number of desktops
+available, is accomplished by sending a message to the root window; the
+included client ``aedesk'' can be used for this.
+
+To move an existing client to a different desktop, set the appropriate
+property on that window. The ``xprop'' command in the standard X11
+distribution can do this with e.g. ``xprop -f _NET_WM_DESKTOP 32c -set
+_NET_WM_DESKTOP 0''.
+
+Clients
+-------
+
+``aemenu'' pops up a menu of programs to be launched, or (when given the
+``--switch'' option) other currently running clients. ``aepanel'' stays
+at the edge of your display and uses buttons to represent other clients.
+It also allows you to open the same menu of programs.
+
+Their config file will be searched for in ``~/.aewm/clientsrc''
+and then ``/etc/X11/aewm/clientsrc''. an example is provided in
+``doc/clientsrc.ex''.
+
+When using aemenu, you can just exec aewm in your ``~/.xsession''
+script, but if you prefer to use aepanel, or want to switch/restart
+window managers without closing your X session, you can start aewm in
+the background and exec aepanel or aesession instead. (aesession is a
+program which does nothing but hold the X session open and reap child
+processes.)
+
+Keyboard Bindings
+----------------------------------------------------------------------
+
+aewm does not grab any keys. This is by design, and recommendation
+of the ICCCM. Instead, you can use xbindkeys (which is unfortately
+not included in the stardard X distribution). For example, in
+~/.xbindkeysrc:
+
+    "xwit -opposite -current"
+        Alt + Tab
+    "aedesk 0"
+        Alt + F1
+    "aedesk 1"
+        Alt + F2
+
+(This ``alt-tab'' is not quite as useful as GNOME's. Properly
+circulating only managed, non-panel, non-taskbar-skipped windows would
+require a client that recognizes those EWMH hints, as X's native window
+circulation support works on a much lower level.)
+
+Other Caveats
+-------------
+
+aewm does not set the root cursor. To do this, you can do something like
+``xsetroot -cursor_name left_ptr.''.
+
+There is no -display option, since there is no stardard way to pass this
+on to child processes. Instead, use ``DISPLAY=host:0 aewm''.
+
+The Makefiles may cause problems with older versions of traditional
+make. Try upgrading first, or substitute ``gmake'' for ``make''.
+
+You may want to adjust with NAME_SIZE in aepanel, as larger values can
+cause large buttons to crowd out smaller ones, but smaller values can
+reduce readability.
+
+Acknowledgements
+----------------
+
+aewm was inspired by the late David Hogan's 9wm. A memorial page for him
+can be found at <http://unauthorised.org/dhog/>.
+
+Thanks to Christophe Tronche for HTML-ifying the ICCCM and other
+essential X documentation, available at <http://www.tronche.com/gui/x/>.
+
+Adam Sampson <ats@offog.org> wrote the initial code for MWM hints, Xft
+support, and helped convert the clients to menus.
+
+Author and License
+------------------
+
+Copyright (c) 1998-2008 Decklin Foster <decklin@red-bean.com>.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
